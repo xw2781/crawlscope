@@ -1,4 +1,5 @@
 export * from './types.js';
+export type { CrawlHooks, CrawlProgress, CrawlPhase } from './crawler.js';
 export { crawl, Crawler, blankPage, recheck, buildContext, STATE_FILE, CRAWL_FILE } from './crawler.js';
 export { resolveOptions, DEFAULT_THRESHOLDS } from './options.js';
 export { parseRobots, robotsMatcher, productToken } from './robots.js';
@@ -13,3 +14,6 @@ export { ALL_CHECKS, runChecks, checkMeta, getCheck } from './checks/index.js';
 export { summarize, healthScore } from './summary.js';
 export { writeCrawlDir, readCrawl, pagesCsv, issuesCsv, linksCsv, toCsv, csvField } from './output.js';
 export { VERSION, DEFAULT_UA } from './fetcher.js';
+export { diffCrawls, diffDirs, formatDiff, type CrawlDiff } from './diff.js';
+export { renderReportHtml, renderDiffHtml } from './report/html.js';
+export { buildReportData, type ReportData } from './report/data.js';

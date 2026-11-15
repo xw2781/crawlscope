@@ -86,12 +86,15 @@ describe('cli', () => {
     expect(r.code).toBe(0);
     expect(JSON.parse(r.stdout).summary.pagesCrawled).toBeGreaterThan(30);
   });
-  it('stub commands announce a later milestone', async () => {
-    for (const c of ['report', 'diff', 'ui', 'mcp']) {
-      const r = await cli([c]);
-      expect(r.stderr).toContain('coming in a later milestone');
-      expect(r.code).toBe(0);
-    }
+  it('mcp is still a stub announcing a later milestone', async () => {
+    const r = await cli(['mcp']);
+    expect(r.stderr).toContain('coming in a later milestone');
+    expect(r.code).toBe(0);
+  });
+  it('report and diff validate their arguments', async () => {
+    expect((await cli(['report'])).code).not.toBe(0);
+    expect((await cli(['report', join(out, 'does-not-exist')])).code).toBe(2);
+    expect((await cli(['diff', join(out, 'x'), join(out, 'y')])).code).toBe(2);
   });
   it('rejects bad input', async () => {
     expect((await cli(['crawl', 'http://', '--out', join(out, 'h')])).code).toBe(2);

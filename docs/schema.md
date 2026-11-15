@@ -46,8 +46,27 @@ Every consumer (reports, diff, MCP) must check `schemaVersion` first; breaking c
 | --- | --- |
 | `crawl.json` | the full result above |
 | `pages.csv`, `issues.csv`, `links.csv` | spreadsheet exports (formula-injection safe) |
+| `report.html` | self-contained HTML report (see below) |
 | `state.jsonl` | one `{page, links}` JSON object per line; powers `--resume` and conditional re-crawls |
 
 `--resume` semantics: if the previous `crawl.json` is `complete` and not `truncated`, pages are revalidated with
 `If-None-Match`/`If-Modified-Since` (a 304 reuses stored data, `reusedFromCache: true`). Otherwise the stored pages are
 reused without network access and the crawl continues from the frontier.
+
+## Report data and diff payloads
+
+`report.html` embeds a compact, columnar projection of `crawl.json` (`ReportData` in [`src/report/data.ts`](../src/report/data.ts)) in a
+`<script id="cs-data" type="application/json">` element: URL/string tables plus parallel arrays per page column, issues as
+`{c, u, m}` columns, links as `[from, to, anchor, flags]` quads (capped at 400k, flagged by `linksTruncated`), and per-page detail
+as JSON strings parsed lazily when the drawer opens. It is an internal format and may change; `crawl.json` is the stable contract.
+
+`crawlscope diff --json` prints a `CrawlDiff` (`src/diff.ts`, `schemaVersion: 1`): `a`/`b` crawl refs, `pages.{added,removed,changed,unchanged}`,
+`issues.{added,resolved,persisting}`, `byCheck[]`, `deltas`, `fieldCounts` and `totals`. Page lists are truncated to `limit` (5000) entries;
+`totals` always has the true counts. Pages match on path when the URL is on the crawl's own origin, otherwise on the full URL.
+Issues match on check id + page, exact message first; a same-check, same-page issue whose message changed counts as persisting.
+
+## Progress hooks
+
+`crawl(options, hooks)` accepts `onProgress({crawled, queued, url, status, errors, active, responseTimeMs, depth, elapsedMs})`,
+`onPhase('starting'|'robots'|'sitemaps'|'crawling'|'probes'|'external'|'analyzing'|'done')`, `onLog` and an `AbortSignal`.
+All hooks are optional and the extra `onProgress` fields are additive.

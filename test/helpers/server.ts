@@ -34,6 +34,8 @@ export interface FixtureOptions {
   latency?: number;
   /** answer /robots.txt with this status and no rules */
   robotsStatus?: number;
+  /** serve a mutated copy of the site (for diff tests): new page, removed page, changed titles */
+  variant?: 'b';
   /** replace robots.txt content */
   robotsText?: string;
 }
@@ -111,6 +113,17 @@ export async function startFixtureServer(opts: FixtureOptions = {}): Promise<Fix
       return send(req, res, 200, 'application/gzip', gzipSync(src), { 'x-etag': 'off' });
     }
 
+    if (opts.variant === 'b') {
+      if (path === '/careers') return send(req, res, 404, TYPES['.html'], '<html><head><title>Not Found</title></head><body><h1>404</h1></body></html>');
+      if (path === '/new-page') return send(req, res, 200, TYPES['.html'], `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Brand New Launch Page Added In The Second Crawl</title><meta name="description" content="A page that only exists in the second variant of the fixture site, used to test diffs between crawls."><meta name="viewport" content="width=device-width"><link rel="canonical" href="${origin()}/new-page"></head><body><main><h1>New launch</h1><p>${words(77, 230)}.</p></main></body></html>`);
+    }
+    const mutate = (rel: string, html: string): string => {
+      if (opts.variant !== 'b') return html;
+      if (rel === 'index.html') return html.replace('<li><a href="/careers">Careers</a></li>', '<li><a href="/new-page">New launch</a></li>');
+      if (rel === 'about.html') return html.replace(/<title>[^<]*<\/title>/, '<title>About Us - Rewritten Title For The Second Crawl Variant</title>').replace(/<meta name="description"[^>]*>/, '');
+      if (rel === 'team.html') return html.replace(/<h1>[^<]*<\/h1>/, '<h1>Our Team</h1>');
+      return html;
+    };
     // static file mapping
     let rel = path === '/' ? 'index.html' : path.slice(1);
     const candidates = [rel, rel + '.html'];
@@ -121,7 +134,7 @@ export async function startFixtureServer(opts: FixtureOptions = {}): Promise<Fix
         const type = TYPES[extname(fp)] ?? 'application/octet-stream';
         const extra: Record<string, string> = {};
         if (c === 'Upper_Case.html' && u.search !== '?x=1') break;
-        return send(req, res, 200, type, ['.js', '.svg', '.pdf'].includes(extname(fp)) ? readFileSync(fp) : fill(readFileSync(fp, 'utf8')), extra);
+        return send(req, res, 200, type, ['.js', '.svg', '.pdf'].includes(extname(fp)) ? readFileSync(fp) : fill(mutate(c, readFileSync(fp, 'utf8'))), extra);
       }
     }
     if (opts.soft404) return send(req, res, 200, TYPES['.html'], '<html><head><title>Not found</title></head><body><h1>Sorry, nothing here</h1></body></html>');

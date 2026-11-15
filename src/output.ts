@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync, renameSync, existsSync } from '
 import { join } from 'node:path';
 import type { CrawlResult, LinkRecord, PageRecord } from './types.js';
 import { CRAWL_FILE, STATE_FILE } from './crawler.js';
+import { renderReportHtml } from './report/html.js';
 
 /** RFC 4180 CSV field with a guard against spreadsheet formula injection. */
 export function csvField(v: unknown): string {
@@ -66,6 +67,7 @@ export function writeCrawlDir(dir: string, result: CrawlResult, formats: OutputF
     put('issues.csv', issuesCsv(result));
     put('links.csv', linksCsv(result.links));
   }
+  if (formats.includes('html')) put('report.html', renderReportHtml(result));
   // compact the incremental state so it holds exactly one line per page
   if (existsSync(join(dir, STATE_FILE))) {
     const byUrl = new Map(result.pages.map((p) => [p.url, p]));

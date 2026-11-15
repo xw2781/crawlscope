@@ -16,8 +16,28 @@ import {
   type RobotsInfo, type SiteProbes, type SitemapFile, type SitemapUrl,
 } from './types.js';
 
+export type CrawlPhase = 'starting' | 'robots' | 'sitemaps' | 'crawling' | 'probes' | 'external' | 'analyzing' | 'done';
+
+export interface CrawlProgress {
+  crawled: number;
+  queued: number;
+  url: string;
+  status: number;
+  /** pages that failed or returned >= 400 so far */
+  errors: number;
+  /** requests currently in flight */
+  active: number;
+  responseTimeMs: number | null;
+  depth: number | null;
+  /** ms since the crawl started */
+  elapsedMs: number;
+}
+
 export interface CrawlHooks {
-  onProgress?(p: { crawled: number; queued: number; url: string; status: number }): void;
+  /** called after every page. Extra fields beyond crawled/queued/url/status are additive. */
+  onProgress?(p: CrawlProgress): void;
+  /** coarse phase transitions, useful for UIs and MCP progress notifications */
+  onPhase?(phase: CrawlPhase): void;
   onLog?(msg: string): void;
   /** abort signal to stop gracefully (result.status = 'partial') */
   signal?: AbortSignal;
@@ -74,6 +94,9 @@ export class Crawler {
   private prior = new Map<string, StoredLine>();
   private priorMode: 'none' | 'resume' | 'incremental' = 'none';
   private fetchedCount = 0;
+  private errorCount = 0;
+  private activeCount = 0;
+  private startedMs = Date.now();
   private truncated = false;
   private statePath: string | null = null;
   private sitemapUrlSet = new Set<string>();
@@ -91,6 +114,17 @@ export class Crawler {
       userAgent: options.userAgent, delayMs: options.delayMs, timeoutMs: options.timeoutMs,
       maxBodyBytes: options.maxBodyBytes, maxRetries: options.maxRetries, maxRetryWaitMs: options.maxRetryWaitMs,
     });
+  }
+
+  private emitProgress(url: string, status: number, responseTimeMs: number | null, depth: number | null) {
+    this.hooks.onProgress?.({
+      crawled: this.fetchedCount, queued: this.queue.length + this.sitemapQueue.length, url, status, errors: this.errorCount,
+      active: this.activeCount, responseTimeMs, depth, elapsedMs: Date.now() - this.startedMs,
+    });
+  }
+
+  private phase(p: CrawlPhase) {
+    this.hooks.onPhase?.(p);
   }
 
   private log(msg: string) {
@@ -193,6 +227,8 @@ export class Crawler {
     const started = Date.now();
     const startedAt = new Date().toISOString();
     const o = this.opts;
+    this.startedMs = Date.now();
+    this.phase('starting');
     if (o.outDir) {
       mkdirSync(o.outDir, { recursive: true });
       this.statePath = join(o.outDir, STATE_FILE);
@@ -201,10 +237,12 @@ export class Crawler {
     }
 
     // robots for the seed origin
+    this.phase('robots');
     const seedRobots = await this.getRobots(originOf(this.seed));
     if (seedRobots.info.mode === 'disallow-all' && o.respectRobots) this.log('robots.txt is unreachable or returned 5xx: treating the site as disallowed (RFC 9309)');
 
     // sitemaps
+    this.phase('sitemaps');
     const robotsDelay = seedRobots.matcher?.crawlDelay ? Math.min(60, seedRobots.matcher.crawlDelay) * 1000 : 0;
     const sm = await discoverSitemaps(this.fetcher, originOf(this.seed), seedRobots.info.parsed?.sitemaps ?? [], o.sitemapUrls, robotsDelay);
     const sitemapUrls: SitemapUrl[] = sm.urls;
@@ -214,12 +252,14 @@ export class Crawler {
     // sitemap URLs are crawled after link-discovered ones
     for (const u of this.sitemapUrlSet) this.enqueue(u, 1, 'sitemap');
 
+    this.phase('crawling');
     await this.runWorkers();
 
     const finishedAtMs = Date.now();
     const aborted = !!this.hooks.signal?.aborted;
 
     // ---- site probes ----
+    this.phase('probes');
     const site = await this.runProbes(robotsDelay);
 
     // ---- AI readiness inputs ----
@@ -228,9 +268,11 @@ export class Crawler {
     const llmsFull = await inspectLlmsFile(this.fetcher, origin + '/llms-full.txt', 'llms-full', { hostDelayMs: robotsDelay });
 
     // ---- external link check ----
+    if (o.externalCheck) this.phase('external');
     const externalLinks = o.externalCheck && !aborted ? await this.checkExternal(robotsDelay) : [];
 
     // ---- finalise ----
+    this.phase('analyzing');
     const pages = [...this.pages.values()];
     const links: LinkRecord[] = [];
     for (const p of pages) links.push(...(this.pageLinks.get(p.url) ?? []));
@@ -267,6 +309,7 @@ export class Crawler {
       site,
     };
     result.summary = summarize(result);
+    this.phase('done');
     return result;
   }
 
@@ -294,10 +337,12 @@ export class Crawler {
             return;
           }
           active++;
+          this.activeCount = active;
           this.processItem(item)
             .catch((e) => this.log(`Error processing ${item.url}: ${(e as Error).message}`))
             .finally(() => {
               active--;
+              this.activeCount = active;
               pump();
             });
         }
@@ -315,7 +360,7 @@ export class Crawler {
       p.indexabilityReason = 'blocked by robots.txt';
       this.pages.set(url, p);
       this.pageLinks.set(url, []);
-      this.hooks.onProgress?.({ crawled: this.fetchedCount, queued: this.queue.length + this.sitemapQueue.length, url, status: 0 });
+      this.emitProgress(url, 0, null, depth);
       return;
     }
 
@@ -368,7 +413,8 @@ export class Crawler {
         set.add(l.from);
       }
     }
-    this.hooks.onProgress?.({ crawled: this.fetchedCount, queued: this.queue.length + this.sitemapQueue.length, url: page.url, status: page.status });
+    if (page.status === 0 || page.status >= 400) this.errorCount++;
+    this.emitProgress(page.url, page.status, page.responseTimeMs, depth);
   }
 
   private buildPage(url: string, depth: number, via: PageRecord['discoveredVia'], res: FetchResult): { page: PageRecord; links: LinkRecord[] } {

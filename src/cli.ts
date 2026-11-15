@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 import { Command, InvalidArgumentError } from 'commander';
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { crawl } from './crawler.js';
 import { resolveOptions } from './options.js';
 import { VERSION } from './fetcher.js';
-import { writeCrawlDir, type OutputFormat } from './output.js';
+import { writeCrawlDir, readCrawl, type OutputFormat } from './output.js';
+import { diffDirs, formatDiff } from './diff.js';
+import { renderDiffHtml } from './report/html.js';
 import { formatAiReport, formatSummary } from './format.js';
 import { hostOf, normalizeUrl } from './util/url.js';
 import type { CrawlOptions, CrawlResult, Severity } from './types.js';
@@ -76,7 +79,7 @@ program
   .option('--resume', 'resume an interrupted crawl or re-crawl incrementally using stored ETag/Last-Modified')
   .option('--ai-bots-check', 'also verify that URLs listed in llms.txt resolve')
   .option('--fail-on <level>', 'exit with code 1 if issues of this severity or worse exist (error|warning)')
-  .action(async (urlArg: string, o, cmd: Command) => {
+  .action(async (urlArg: string, o) => {
     if (o.robots === false && !o.iOwnThisSite) fail('--no-robots requires --i-own-this-site (only ignore robots.txt on sites you own or have permission to crawl).');
     if (o.failOn && !['error', 'warning'].includes(o.failOn)) fail('--fail-on must be "error" or "warning"');
     const url = toUrl(urlArg);
@@ -98,7 +101,6 @@ program
       try { new RegExp(p); } catch { fail(`invalid regular expression: ${p}`); }
     }
     if (!opts.respectRobots) err('warning: robots.txt is being ignored. Be sure you are allowed to crawl this site.');
-    if (formats.includes('html') && cmd.getOptionValueSource('format') !== 'default') err('note: report.html generation arrives in a later milestone; writing json/csv only.');
 
     const ac = new AbortController();
     let interrupted = false;
@@ -116,7 +118,7 @@ program
       fail((e as Error).message);
     }
     if (showProgress) process.stderr.write('\r\u001b[K');
-    const files = writeCrawlDir(outDir, result, formats.filter((f) => f !== 'html'));
+    const files = writeCrawlDir(outDir, result, formats);
     if (o.json) {
       const s = result.summary;
       process.stdout.write(JSON.stringify({
@@ -163,17 +165,69 @@ for (const name of ['llms', 'ai-readiness']) {
     .action(aiAction);
 }
 
-for (const [name, desc] of [['report', 'Regenerate HTML/CSV reports from a crawl directory'], ['diff', 'Compare two crawls'], ['ui', 'Local web UI'], ['mcp', 'MCP server over stdio']] as const) {
-  program
-    .command(name)
-    .description(`${desc} (coming in a later milestone)`)
-    .allowUnknownOption(true)
-    .allowExcessArguments(true)
-    .helpOption(false)
-    .action(() => {
-      process.stderr.write(`crawlscope ${name}: coming in a later milestone\n`);
-      process.exit(0);
-    });
+program
+  .command('report')
+  .description('Regenerate report.html and CSV exports from a crawl directory')
+  .argument('<crawl-dir>', 'directory containing crawl.json')
+  .option('--open', 'open report.html in the default browser')
+  .option('--format <list>', 'outputs: html,csv', 'html,csv')
+  .action(async (dirArg: string, o) => {
+    const dir = resolve(dirArg);
+    let result: CrawlResult;
+    try { result = readCrawl(dir); } catch (e) { fail(`cannot read ${join(dir, 'crawl.json')}: ${(e as Error).message}`); }
+    const formats = String(o.format).split(',').map((x) => x.trim()).filter(Boolean) as OutputFormat[];
+    const files = writeCrawlDir(dir, result, formats.filter((f) => f !== 'json'));
+    for (const f of files) process.stdout.write(f + '\n');
+    if (o.open) openPath(join(dir, 'report.html'));
+  });
+
+program
+  .command('diff')
+  .description('Compare two crawls: new/removed pages, changed fields, issues added/resolved/persisting')
+  .argument('<crawlA>', 'baseline crawl directory (or crawl.json)')
+  .argument('<crawlB>', 'newer crawl directory (or crawl.json)')
+  .option('--json', 'print the diff as JSON')
+  .option('--html <file>', 'write a standalone HTML diff report')
+  .action((a: string, b: string, o) => {
+    const dir = (p: string) => (p.endsWith('.json') ? resolve(p, '..') : resolve(p));
+    let d;
+    try { d = diffDirs(dir(a), dir(b)); } catch (e) { fail((e as Error).message); }
+    if (o.html) { writeFileSync(resolve(o.html), renderDiffHtml(d)); err(`wrote ${resolve(o.html)}`); }
+    process.stdout.write(o.json ? JSON.stringify(d, null, 2) + '\n' : formatDiff(d));
+  });
+
+program
+  .command('ui')
+  .description('Local web UI (127.0.0.1 only): start crawls, watch progress, browse and compare results')
+  .argument('[dir]', 'workspace directory holding crawls (default ./crawlscope-data)')
+  .option('--port <n>', 'port to listen on', int, 4173)
+  .option('--no-open', 'do not open the browser')
+  .action(async (dirArg: string | undefined, o) => {
+    const { startUiServer } = await import('./ui/server.js');
+    const dir = resolve(dirArg ?? 'crawlscope-data');
+    let srv;
+    try { srv = await startUiServer({ dataDir: dir, port: o.port }); } catch (e) { fail(`cannot start UI: ${(e as Error).message}`); }
+    const url = `http://127.0.0.1:${srv.port}/`;
+    process.stdout.write(`crawlscope UI running at ${url}\nWorkspace: ${dir}\nPress Ctrl+C to stop.\n`);
+    if (o.open !== false) openPath(url);
+    process.on('SIGINT', () => { void srv.close().then(() => process.exit(0)); });
+  });
+
+program
+  .command('mcp')
+  .description('MCP server over stdio (coming in milestone 3)')
+  .allowUnknownOption(true)
+  .allowExcessArguments(true)
+  .helpOption(false)
+  .action(() => {
+    process.stderr.write('crawlscope mcp: coming in a later milestone\n');
+    process.exit(0);
+  });
+
+function openPath(target: string) {
+  const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'cmd' : 'xdg-open';
+  const args = process.platform === 'win32' ? ['/c', 'start', '', target] : [target];
+  try { spawn(cmd, args, { stdio: 'ignore', detached: true }).on('error', () => err(`could not open a browser; open ${target} manually`)).unref(); } catch { /* ignore */ }
 }
 
 program.parseAsync(process.argv).catch((e) => fail((e as Error).message));

@@ -24,14 +24,34 @@ crawlscope crawl <url> [--out dir] [--max-pages N] [--max-depth N] [--concurrenc
                        [--no-robots --i-own-this-site] [--resume] [--ai-bots-check]
                        [--json] [--fail-on error|warning]
 crawlscope llms <url>          # quick AI-readiness check (alias: ai-readiness); add --json
+crawlscope report <crawl-dir> [--open]            # regenerate report.html / CSVs from crawl.json
+crawlscope diff <crawlA> <crawlB> [--json] [--html out.html]
+crawlscope ui [dir] [--port 4173] [--no-open]     # local web UI on 127.0.0.1
 ```
 
 Output directory (default `./crawlscope-data/<host>-<timestamp>`): `crawl.json` ([schema](docs/schema.md)), `pages.csv`,
-`issues.csv`, `links.csv`, `state.jsonl`.
+`issues.csv`, `links.csv`, `report.html`, `state.jsonl`.
 
 * `--json` prints a compact machine-readable summary to stdout only; progress and logs go to stderr.
 * `--fail-on error|warning` exits 1 when issues of that severity or worse exist (CI gate).
 * `--resume` continues an interrupted crawl, or re-crawls incrementally using stored ETag / Last-Modified.
+
+### Reports, diff and the local UI
+
+![Report overview](docs/img/report-overview-light.png)
+
+* **`report.html`** is a single self-contained file (inline CSS/JS/data, no network requests, works offline): health score,
+  severity / status-code / depth / response-time charts, AI-readiness card with a per-bot allow/block grid, issues with
+  how-to-fix text, a searchable, sortable, virtualised pages table (tested with 50k pages) and a page detail drawer. Light and dark
+  themes follow your system and can be toggled; it prints cleanly (the pages table is omitted in print, use `pages.csv`).
+* **`crawlscope diff A B`** compares two crawl directories: added/removed pages, changed fields (status, title, meta description,
+  H1, canonical, indexability, depth, word count, link counts, response time, size), and issues new / resolved / persisting.
+  Pages are matched by path, so staging vs. production can be compared. `--html` writes a standalone report in the same design.
+* **`crawlscope ui`** serves a single-page app on `127.0.0.1` only (Host-header checked against DNS rebinding; state-changing
+  requests need a per-session token): start crawls with live SSE progress, browse past crawls, compare two crawls, download exports.
+  The workspace defaults to `./crawlscope-data`.
+
+![Diff report](docs/img/diff-report.png)
 
 ## Responsible crawling
 
