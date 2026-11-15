@@ -1,0 +1,13 @@
+# Fixture Site
+
+> A deliberately flawed fixture website used to exercise crawlscope.
+
+## Docs
+
+- [About](/about): Who we are
+- [Widget](/products/widget): The product
+- [Missing doc]({{ORIGIN}}/missing-doc): This link is dead
+
+## Optional
+
+- [Blog](/blog/post-1)

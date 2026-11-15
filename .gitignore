@@ -1,0 +1,8 @@
+node_modules
+dist
+*.tgz
+crawlscope-data
+.crawlscope
+coverage
+.m1.txt*
+.run.sh

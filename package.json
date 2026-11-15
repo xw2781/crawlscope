@@ -1,0 +1,49 @@
+{
+  "name": "crawlscope",
+  "version": "0.1.0",
+  "description": "Free, local, unlimited SEO crawler with GEO/AEO checks and an agent-friendly JSON interface.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "crawlscope": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
+    "dev": "tsx src/cli.ts"
+  },
+  "keywords": [
+    "seo",
+    "crawler",
+    "geo",
+    "aeo",
+    "llms.txt",
+    "mcp"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xw2781/crawlscope.git"
+  },
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "commander": "^15.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsup": "^9.0.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.0"
+  }
+}

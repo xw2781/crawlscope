@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<url><loc>{{ORIGIN}}/</loc><lastmod>2025-02-01</lastmod></url>
+<url><loc>{{ORIGIN}}/about</loc><lastmod>2025-02-01</lastmod></url>
+<url><loc>{{ORIGIN}}/products/widget</loc></url>
+<url><loc>{{ORIGIN}}/noindex</loc></url>
+<url><loc>{{ORIGIN}}/private/secret</loc></url>
+<url><loc>{{ORIGIN}}/blog/post-1</loc><lastmod>2025-01-15</lastmod></url>
+</urlset>
