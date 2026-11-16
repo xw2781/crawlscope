@@ -216,13 +216,11 @@ program
 
 program
   .command('mcp')
-  .description('MCP server over stdio (coming in milestone 3)')
-  .allowUnknownOption(true)
-  .allowExcessArguments(true)
-  .helpOption(false)
-  .action(() => {
-    process.stderr.write('crawlscope mcp: coming in a later milestone\n');
-    process.exit(0);
+  .description('MCP server over stdio for AI agents (data dir: $CRAWLSCOPE_DATA_DIR or ~/.crawlscope)')
+  .option('--data-dir <dir>', 'where crawls are stored and read from')
+  .action(async (o) => {
+    const { runMcpStdio } = await import('./mcp/index.js');
+    await runMcpStdio({ ...(o.dataDir ? { dataDir: resolve(o.dataDir) } : {}) });
   });
 
 function openPath(target: string) {

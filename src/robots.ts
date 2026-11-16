@@ -101,6 +101,8 @@ export function productToken(userAgent: string): string {
 
 export interface RobotsMatcher {
   isAllowed(pathWithQuery: string): boolean;
+  /** the winning rule for a path, or null when none matches */
+  matchingRule(pathWithQuery: string): { type: 'allow' | 'disallow'; path: string } | null;
   /** seconds, or null */
   crawlDelay: number | null;
   matchedBy: 'explicit' | 'wildcard' | 'none';
@@ -119,20 +121,28 @@ export function robotsMatcher(parsed: ParsedRobots | null, userAgent: string): R
   const delays = chosen.map((g) => g.crawlDelay).filter((d): d is number => d !== null);
   const compiled = rules
     .filter((r) => r.path !== '') // empty Disallow = allow all; empty Allow = no-op
-    .map((r) => ({ type: r.type, len: normPath(r.path).length, re: patternToRegex(r.path) }));
+    .map((r) => ({ type: r.type, path: r.path, len: normPath(r.path).length, re: patternToRegex(r.path) }));
+  const best = (pathWithQuery: string) => {
+    const path = normPath(pathWithQuery.startsWith('/') ? pathWithQuery : '/' + pathWithQuery);
+    let b: (typeof compiled)[number] | null = null;
+    for (const r of compiled) {
+      if (!r.re.test(path)) continue;
+      if (!b || r.len > b.len || (r.len === b.len && r.type === 'allow')) b = r;
+    }
+    return b;
+  };
   return {
+    matchingRule(pathWithQuery: string) {
+      const b = best(pathWithQuery);
+      return b ? { type: b.type, path: b.path } : null;
+    },
     matchedBy,
     rules,
     crawlDelay: delays.length ? Math.max(...delays) : null,
     isAllowed(pathWithQuery: string): boolean {
       if (pathWithQuery === '/robots.txt') return true;
-      const path = normPath(pathWithQuery.startsWith('/') ? pathWithQuery : '/' + pathWithQuery);
-      let best: { type: 'allow' | 'disallow'; len: number } | null = null;
-      for (const r of compiled) {
-        if (!r.re.test(path)) continue;
-        if (!best || r.len > best.len || (r.len === best.len && r.type === 'allow')) best = r;
-      }
-      return !best || best.type === 'allow';
+      const b = best(pathWithQuery);
+      return !b || b.type === 'allow';
     },
   };
 }
