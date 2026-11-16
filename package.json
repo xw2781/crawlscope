@@ -11,7 +11,9 @@
   "types": "dist/index.d.ts",
   "files": [
     "dist",
-    "docs/*.md",
+    "docs/agents.md",
+    "docs/mcp.md",
+    "docs/schema.md",
     "skills",
     "README.md",
     "LICENSE"
