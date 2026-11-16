@@ -77,16 +77,16 @@ Facts below come from the vendor's website as checked on 2026-11-15; check it fo
 | | crawlscope | Screaming Frog SEO Spider (free) | Screaming Frog SEO Spider (paid) |
 |---|---|---|---|
 | Price | Free, MIT | Free | $279 / user / year (£199) |
-| URLs per crawl | Unlimited (you choose `--max-pages`) | 500 | Unlimited (memory/disk bound) |
+| URLs per crawl | Unlimited (you choose `--max-pages`) | 500 | No 500-URL cap (see vendor for limits) |
 | Source | Open source | Closed | Closed |
 | Install | `npx` / Node 20+ | Desktop app | Desktop app |
 | Save and compare crawls | Yes | Not in free version | Yes |
 | JavaScript rendering | **No** (not yet) | Not in free version | Yes |
 | Custom extraction | **No** (not yet) | Not in free version | Yes |
 | GA / GSC / PageSpeed integrations | **No** (not yet) | Not in free version | Yes |
-| Scheduling, command-line automation | CLI + your own scheduler / CI | Limited | Yes |
-| Accessibility audit, spelling and grammar, visualisations | **No** (not yet) | Varies | Yes |
-| MCP server | Yes | n/a | Yes (listed by the vendor) |
+| Scheduling, command-line automation | CLI + your own scheduler / CI | not verified | Yes (vendor lists scheduling and command-line automation) |
+| Accessibility audit, spelling/grammar, visualisations | **No** (not yet) | not verified | Yes (vendor lists accessibility auditing) |
+| MCP server | Yes | not verified | Yes (listed by the vendor) |
 | GEO/AEO checks (llms.txt, AI-bot access, AI-readiness score) | Yes | not verified | not verified |
 
 Our angle is narrow: **free, unlimited, open source, zero-install, with GEO/AEO checks and agent-friendly output.** If you need JavaScript
