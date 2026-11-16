@@ -11,6 +11,8 @@
   "types": "dist/index.d.ts",
   "files": [
     "dist",
+    "docs/*.md",
+    "skills",
     "README.md",
     "LICENSE"
   ],
@@ -21,15 +23,26 @@
     "build": "tsup",
     "test": "vitest run",
     "lint": "tsc --noEmit",
-    "dev": "tsx src/cli.ts"
+    "dev": "tsx src/cli.ts",
+    "smoke:public": "bash scripts/smoke-public.sh",
+    "prepack": "npm run build"
   },
   "keywords": [
     "seo",
+    "seo-crawler",
+    "site-audit",
     "crawler",
     "geo",
     "aeo",
+    "generative-engine-optimization",
     "llms.txt",
-    "mcp"
+    "ai-readiness",
+    "robots.txt",
+    "sitemap",
+    "structured-data",
+    "mcp",
+    "model-context-protocol",
+    "cli"
   ],
   "repository": {
     "type": "git",
@@ -48,5 +61,11 @@
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^5.1.0"
-  }
+  },
+  "private": false,
+  "homepage": "https://github.com/xw2781/crawlscope#readme",
+  "bugs": {
+    "url": "https://github.com/xw2781/crawlscope/issues"
+  },
+  "author": "xw2781"
 }
