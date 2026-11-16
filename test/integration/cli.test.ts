@@ -86,9 +86,9 @@ describe('cli', () => {
     expect(r.code).toBe(0);
     expect(JSON.parse(r.stdout).summary.pagesCrawled).toBeGreaterThan(30);
   });
-  it('mcp is still a stub announcing a later milestone', async () => {
-    const r = await cli(['mcp']);
-    expect(r.stderr).toContain('coming in a later milestone');
+  it('mcp is documented in --help', async () => {
+    const r = await cli(['mcp', '--help']);
+    expect(r.stdout).toContain('MCP server over stdio');
     expect(r.code).toBe(0);
   });
   it('report and diff validate their arguments', async () => {
