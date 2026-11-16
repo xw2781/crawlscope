@@ -31,6 +31,7 @@ export function resolveOptions(partial: Partial<CrawlOptions> & { url: string })
     timeoutMs: 15000,
     maxBodyBytes: 5 * 1024 * 1024,
     maxRetries: 2,
+    maxUrlsPerPattern: 1000,
     maxRetryWaitMs: 30000,
     sitemapUrls: [],
     aiBotsCheck: false,

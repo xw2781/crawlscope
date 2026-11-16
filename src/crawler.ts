@@ -10,6 +10,8 @@ import { computeAiReadiness } from './ai-readiness.js';
 import { ALL_CHECKS, checkMeta, runChecks } from './checks/index.js';
 import { hostOf, isSameSite, normalizeUrl, originOf, pathAndQuery } from './util/url.js';
 import { summarize } from './summary.js';
+import { decodeBody } from './util/charset.js';
+import { parseLinkHeader, xRobotsDirectives } from './util/headers.js';
 import {
   SCHEMA_VERSION,
   type CheckContext, type CrawlOptions, type CrawlResult, type ExternalLinkResult, type LinkRecord, type PageRecord,
@@ -59,6 +61,16 @@ const KEEP_HEADERS = ['content-type', 'content-length', 'content-encoding', 'con
 export const STATE_FILE = 'state.jsonl';
 export const CRAWL_FILE = 'crawl.json';
 
+const MAX_URL_LENGTH = 4096;
+
+/** Path pattern used for trap detection: numeric/date segments collapse, query keys only. */
+export function urlPattern(url: string): string {
+  const u = new URL(url);
+  const segs = u.pathname.split('/').map((s) => (/^\d+$/.test(s) || /^\d{4}-\d{2}(-\d{2})?$/.test(s) ? '{n}' : s));
+  const keys = [...new Set([...u.searchParams.keys()])].sort();
+  return `${u.host}${segs.join('/')}${keys.length ? '?' + keys.join('&') : ''}`;
+}
+
 const isHtmlType = (ct: string | undefined | null) => !!ct && /(text\/html|application\/xhtml\+xml)/i.test(ct);
 
 export function blankPage(url: string, via: PageRecord['discoveredVia'], depth: number | null): PageRecord {
@@ -70,6 +82,7 @@ export function blankPage(url: string, via: PageRecord['discoveredVia'], depth: 
     lang: null, viewport: null, headings: [], hreflang: [], images: [], og: {}, twitter: {}, structuredData: [],
     paginationNext: null, paginationPrev: null, faviconHref: null, mixedContent: [], wordCount: 0, textBytes: 0, textRatio: null,
     contentHash: null, simhash: null, indexable: false, indexabilityReason: 'not fetched', noindex: false, nofollow: false,
+    metaRefresh: null, canonicalHeader: null, resources: { iframes: [], srcset: [] }, charset: null,
     inlinks: 0, uniqueInlinkSources: 0, outlinksInternal: 0, outlinksExternal: 0, inSitemap: false,
     ai: { hasMain: false, hasArticle: false, hasAuthor: false, hasDate: false, datePublished: null, dateModified: null, hasJsonLd: false,
       faqLike: false, summaryLike: false, jsShell: false, scriptCount: 0, snippetDirectives: [], articleLike: false },
@@ -100,6 +113,8 @@ export class Crawler {
   private truncated = false;
   private statePath: string | null = null;
   private sitemapUrlSet = new Set<string>();
+  private patternCounts = new Map<string, number>();
+  private traps = new Map<string, { pattern: string; skipped: number; example: string }>();
 
   constructor(options: CrawlOptions, hooks: CrawlHooks = {}) {
     this.opts = options;
@@ -146,6 +161,30 @@ export class Crawler {
     if (this.seen.has(url)) return;
     if (!this.inScope(url) || !this.allowedByFilters(url)) return;
     if (this.opts.maxDepth !== null && depth > this.opts.maxDepth) return;
+    if (url.length > MAX_URL_LENGTH) {
+      // never sent: recorded as a failed page so it shows up in reports
+      this.seen.add(url);
+      const p = blankPage(url, via, depth);
+      p.fetchError = { code: 'URL_TOO_LONG', message: `URL is ${url.length} characters (limit ${MAX_URL_LENGTH}); not requested` };
+      p.indexabilityReason = 'fetch failed (URL_TOO_LONG)';
+      this.pages.set(url, p);
+      this.pageLinks.set(url, []);
+      return;
+    }
+    if (via !== 'sitemap' && via !== 'seed' && this.opts.maxUrlsPerPattern > 0) {
+      const pattern = urlPattern(url);
+      const n = this.patternCounts.get(pattern) ?? 0;
+      if (n >= this.opts.maxUrlsPerPattern) {
+        let t = this.traps.get(pattern);
+        if (!t) {
+          this.traps.set(pattern, (t = { pattern, skipped: 0, example: url }));
+          this.log(`Possible crawl trap: more than ${this.opts.maxUrlsPerPattern} URLs match ${pattern}; skipping the rest (raise --max-urls-per-pattern to override)`);
+        }
+        t.skipped++;
+        return;
+      }
+      this.patternCounts.set(pattern, n + 1);
+    }
     this.seen.add(url);
     (via === 'sitemap' ? this.sitemapQueue : this.queue).push({ url, depth, via });
   }
@@ -261,6 +300,7 @@ export class Crawler {
     // ---- site probes ----
     this.phase('probes');
     const site = await this.runProbes(robotsDelay);
+    if (this.traps.size) site.trapPatterns = [...this.traps.values()];
 
     // ---- AI readiness inputs ----
     const origin = originOf(this.effectiveSeed);
@@ -452,17 +492,28 @@ export class Crawler {
       }
       return { page, links };
     }
-    const robotsText = `${page.xRobotsTag ?? ''}`.toLowerCase();
     if (res.status >= 200 && res.status < 300 && page.isHtml && res.body) {
-      const html = res.body.toString('utf8');
+      const dec = decodeBody(res.body, page.contentType);
+      page.charset = dec.charset;
+      if (dec.binary) {
+        // binary data labelled as HTML: don't parse it
+        page.isHtml = false;
+        page.indexabilityReason = 'binary content served as HTML';
+        return { page, links };
+      }
+      const html = dec.text;
       const x = extractHtml(html, url, page.xRobotsTag);
       const { links: raw, ai, ...rest } = x;
       Object.assign(page, rest);
       page.ai = ai;
       page.faviconHref = x.faviconHref;
-      const directives = `${page.metaRobots ?? ''},${robotsText}`;
+      const directives = `${page.metaRobots ?? ''},${xRobotsDirectives(page.xRobotsTag).join(',')}`;
       page.noindex = /(^|[\s,])(noindex|none)([\s,]|$)/.test(directives);
       page.nofollow = /(^|[\s,])(nofollow|none)([\s,]|$)/.test(directives);
+      if (page.metaRefresh?.url) {
+        const t = normalizeUrl(page.metaRefresh.url, url);
+        if (t) raw.push({ to: t, anchor: '', rel: ['meta-refresh'], imageOnly: false });
+      }
       const seen = new Set<string>();
       for (const l of raw) {
         const key = `${l.to}|${l.anchor}`;
@@ -474,7 +525,20 @@ export class Crawler {
         });
       }
     } else if (res.status >= 200 && res.status < 300) {
-      page.noindex = /noindex|none/.test(robotsText);
+      page.noindex = /(^|[\s,])(noindex|none)([\s,]|$)/.test(xRobotsDirectives(page.xRobotsTag).join(','));
+    }
+    // HTTP Link header: canonical and hreflang alternates (HTML and non-HTML responses)
+    if (res.status >= 200 && res.status < 300) {
+      for (const hl of parseLinkHeader(res.headers['link'])) {
+        const t = normalizeUrl(hl.url, url);
+        if (!t) continue;
+        if (hl.rel.includes('canonical')) {
+          page.canonicalHeader = t;
+          if (!page.canonicals.includes(t)) page.canonicals.push(t);
+        } else if (hl.rel.includes('alternate') && hl.hreflang) {
+          page.hreflang.push({ lang: hl.hreflang, href: t, source: 'header' });
+        }
+      }
     }
     // indexability
     if (res.status !== 200) page.indexabilityReason = `HTTP ${res.status}`;

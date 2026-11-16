@@ -38,6 +38,8 @@ export interface CrawlOptions {
   timeoutMs: number;
   maxBodyBytes: number;
   maxRetries: number;
+  /** stop following link-discovered URLs of one path pattern after this many (0 = unlimited); guards against calendar/filter traps */
+  maxUrlsPerPattern: number;
   /** cap on how long we honour a Retry-After header, ms */
   maxRetryWaitMs: number;
   sitemapUrls: string[];
@@ -175,6 +177,15 @@ export interface PageRecord {
   outlinksInternal: number;
   outlinksExternal: number;
   inSitemap: boolean;
+
+  /** <meta http-equiv=refresh> redirect, if any */
+  metaRefresh?: { delay: number; url: string | null } | null;
+  /** rel=canonical from the HTTP Link header (also merged into `canonicals`) */
+  canonicalHeader?: string | null;
+  /** iframe and srcset URLs: recorded but never crawled */
+  resources?: { iframes: string[]; srcset: string[] };
+  /** character set used to decode the body */
+  charset?: string | null;
 
   /** AI-readiness related page signals (heuristics, see docs) */
   ai: PageAiSignals;
@@ -360,6 +371,8 @@ export interface SiteProbes {
   favicon: { url: string; status: number | null; declaredInHtml: boolean } | null;
   hsts: string | null;
   isHttps: boolean;
+  /** path patterns that hit --max-urls-per-pattern */
+  trapPatterns?: { pattern: string; skipped: number; example: string }[];
 }
 
 export interface CrawlSummary {

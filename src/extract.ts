@@ -3,6 +3,7 @@ import type { HeadingInfo, HreflangEntry, ImageInfo, PageAiSignals, StructuredDa
 import { normalizeUrl } from './util/url.js';
 import { sha256Short, simhash } from './util/hash.js';
 import { extractStructuredData } from './structured-data.js';
+import { parseMetaRefresh } from './util/headers.js';
 
 export interface RawLink {
   to: string;
@@ -37,6 +38,8 @@ export interface HtmlExtract {
   contentHash: string | null;
   simhash: string | null;
   links: RawLink[];
+  metaRefresh: { delay: number; url: string | null } | null;
+  resources: { iframes: string[]; srcset: string[] };
   ai: PageAiSignals;
 }
 
@@ -160,6 +163,21 @@ export function extractHtml(html: string, pageUrl: string, xRobotsTag: string | 
     links.push({ to, anchor: text || imgAlt, rel, imageOnly });
   });
 
+  // meta refresh + non-crawled resources (iframes, srcset)
+  let metaRefresh: HtmlExtract['metaRefresh'] = null;
+  const mr = parseMetaRefresh($('meta[http-equiv="refresh" i]').first().attr('content'));
+  if (mr) metaRefresh = { delay: mr.delay, url: mr.url ? normalizeUrl(mr.url, base) ?? mr.url : null };
+  const iframes = new Set<string>();
+  $('iframe[src], frame[src]').each((_, e) => { const u = abs($(e).attr('src'), base); if (u && /^https?:/.test(u)) iframes.add(u); });
+  const srcset = new Set<string>();
+  $('img[srcset], source[srcset]').each((_, e) => {
+    for (const part of ($(e).attr('srcset') ?? '').split(',')) {
+      const u = abs(part.trim().split(/\s+/)[0], base);
+      if (u && /^https?:/.test(u)) srcset.add(u);
+    }
+  });
+  const resources = { iframes: [...iframes].slice(0, 50), srcset: [...srcset].slice(0, 100) };
+
   // ---- visible text ----
   const scriptCount = $('script').length;
   const noscriptText = collapse($('noscript').text()).toLowerCase();
@@ -239,6 +257,8 @@ export function extractHtml(html: string, pageUrl: string, xRobotsTag: string | 
     contentHash: wordCount > 0 ? sha256Short(text.toLowerCase()) : null,
     simhash: wordCount >= 20 ? simhash(text) : null,
     links,
+    metaRefresh,
+    resources,
     ai: {
       hasMain,
       hasArticle,

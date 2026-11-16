@@ -38,6 +38,8 @@ export interface FixtureOptions {
   variant?: 'b';
   /** replace robots.txt content */
   robotsText?: string;
+  /** drop the connection on /robots.txt (unreachable) */
+  robotsHang?: boolean;
 }
 
 const TYPES: Record<string, string> = {
@@ -68,12 +70,71 @@ export async function startFixtureServer(opts: FixtureOptions = {}): Promise<Fix
     res.end(req.method === 'HEAD' ? undefined : buf);
   };
 
+  const page = (title: string, body: string, head = '') =>
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${title}</title><meta name="description" content="Edge case fixture page used to test the crawler on unusual responses and markup."><meta name="viewport" content="width=device-width">${head}</head><body><main><h1>${title}</h1><p>${words(title.length, 60)}.</p>${body}</main></body></html>`;
+  /** Edge-case routes (not linked from the main fixture site). Returns true when handled. */
+  const edge = async (req: http.IncomingMessage, res: http.ServerResponse, path: string, u: URL): Promise<boolean> => {
+    const html = (body: string | Buffer, extra: Record<string, string> = {}, type = TYPES['.html']) => (send(req, res, 200, type, body, extra), true);
+    const days = /^\/edge\/cal\/(\d{4})-(\d{2})-(\d{2})$/.exec(path);
+    if (days) {
+      const d = new Date(Date.UTC(+days[1], +days[2] - 1, +days[3] + 1)).toISOString().slice(0, 10);
+      return html(page(`Calendar ${path.slice(-10)}`, `<a href="/edge/cal/${d}">Next day</a>`));
+    }
+    switch (path) {
+      case '/edge/hub':
+        return html(page('Edge hub', [
+          'latin1', 'sniffed', 'binary', 'refresh', 'base', 'embeds', 'header-canon', 'dup', 'dup/', 'cal/2024-01-01', 'huge', 'long-ok',
+          'long-' + 'x'.repeat(5000),
+        ].map((x) => `<a href="/edge/${x}">${x.slice(0, 20)}</a>`).join(' ')));
+      case '/edge/latin1':
+        return html(Buffer.concat([Buffer.from('<!doctype html><html><head><title>Caf'), Buffer.from([0xe9]), Buffer.from(' au lait cr'), Buffer.from([0xe8]), Buffer.from('me and more words for the title</title></head><body><main><h1>Caf'), Buffer.from([0xe9]), Buffer.from('</h1></main></body></html>')]), {}, 'text/html; charset=iso-8859-1');
+      case '/edge/sniffed':
+        return html(Buffer.concat([Buffer.from('<!doctype html><html><head><meta charset="windows-1252"><title>Na'), Buffer.from([0xef]), Buffer.from('ve caf'), Buffer.from([0xe9]), Buffer.from(' title for sniffing</title></head><body><main><h1>x</h1></main></body></html>')]), {}, 'text/html');
+      case '/edge/binary': {
+        const b = Buffer.alloc(4096);
+        for (let i = 0; i < b.length; i++) b[i] = (i * 31) % 7 === 0 ? 0 : (i * 17) % 256;
+        return html(b, {}, 'text/html');
+      }
+      case '/edge/refresh':
+        return html(page('Refreshing page that moves on', '', `<meta http-equiv="refresh" content="3; url=/edge/refresh-target">`));
+      case '/edge/refresh-target':
+        return html(page('Refresh target page reached via meta refresh', ''));
+      case '/edge/base':
+        return html(page('Page with a relative base href', '<a href="leaf">Leaf page</a>', '<base href="/edge/sub/"><link rel="canonical" href="leaf">'));
+      case '/edge/sub/leaf':
+        return html(page('Leaf resolved through the base element', ''));
+      case '/edge/embeds':
+        return html(page('Page with iframe and srcset', '<iframe src="/edge/iframe-target"></iframe><img src="/edge/img-1x.png" srcset="/edge/img-1x.png 1x, /edge/img-2x.png 2x" alt="x">'));
+      case '/edge/header-canon':
+        return html(page('Canonical and noindex only in HTTP headers', ''), { link: `<${origin()}/edge/hub>; rel="canonical", <${origin()}/edge/latin1>; rel="alternate"; hreflang="fr"`, 'x-robots-tag': 'googlebot: noindex' });
+      case '/edge/dup':
+      case '/edge/dup/':
+        return html(page('Trailing slash duplicate', ''));
+      case '/edge/huge': {
+        // 7 MB of HTML streamed (over the 5 MB cap)
+        res.writeHead(200, { 'content-type': TYPES['.html'] });
+        const chunk = '<p>' + 'filler text '.repeat(80) + '</p>\n';
+        res.write('<!doctype html><html><head><title>Huge document</title></head><body><main><h1>Huge</h1>');
+        for (let i = 0; i < 7500 && !res.destroyed; i++) res.write(chunk);
+        res.end('</main></body></html>');
+        return true;
+      }
+      case '/edge/long-ok':
+        return html(page('Fine', `<a href="/edge/long-ok?${'q'.repeat(2000)}=1">long</a>`));
+    }
+    if (path.startsWith('/edge/long-')) return html(page('Long URL page', ''));
+    void u;
+    return false;
+  };
+
   const server = http.createServer(async (req, res) => {
     const u = new URL(req.url ?? '/', origin());
     const path = u.pathname;
     requests.push({ path: path + u.search, headers: req.headers, method: req.method ?? 'GET' });
     if (opts.latency) await new Promise((r) => setTimeout(r, opts.latency));
 
+    if (path === '/robots.txt' && opts.robotsHang) return void req.socket.destroy();
+    if (path.startsWith('/edge/') && (await edge(req, res, path, u))) return;
     if (path === '/robots.txt' && opts.robotsStatus) return send(req, res, opts.robotsStatus, 'text/plain', 'x');
     if (path === '/robots.txt' && opts.robotsText !== undefined) return send(req, res, 200, 'text/plain', opts.robotsText);
     if (path === '/redirect-start') return redirect(res, 301, '/redirect-mid');

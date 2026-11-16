@@ -70,6 +70,7 @@ program
   .option('--respect-nofollow', 'do not follow rel=nofollow links or pages with nofollow')
   .option('--subdomains', 'also crawl subdomains of the start host')
   .option('--external-check', 'HEAD-check outbound links (never crawls them)')
+  .option('--max-urls-per-pattern <n>', 'stop following URLs of one path pattern after N (calendar/filter trap guard; 0 = unlimited)', int, 1000)
   .option('--timeout <ms>', 'per-request timeout', int, 15000)
   .option('--sitemap <url>', 'additional sitemap URL (repeatable)', collect)
   .option('--slow-ms <ms>', 'slow-response threshold (warning)', int)
@@ -92,7 +93,7 @@ program
     const opts: CrawlOptions = resolveOptions({
       url, maxPages: o.maxPages ?? null, maxDepth: o.maxDepth ?? null, concurrency: Math.max(1, o.concurrency), delayMs: o.delay,
       include: o.include ?? [], exclude: o.exclude ?? [], respectRobots: o.robots !== false, respectNofollow: !!o.respectNofollow,
-      subdomains: !!o.subdomains, externalCheck: !!o.externalCheck, timeoutMs: o.timeout, sitemapUrls: o.sitemap ?? [],
+      maxUrlsPerPattern: o.maxUrlsPerPattern, subdomains: !!o.subdomains, externalCheck: !!o.externalCheck, timeoutMs: o.timeout, sitemapUrls: o.sitemap ?? [],
       aiBotsCheck: !!o.aiBotsCheck, resume: !!o.resume, outDir,
       ...(o.userAgent ? { userAgent: o.userAgent } : {}),
       thresholds: { ...(o.slowMs !== undefined ? { slowMs: o.slowMs } : {}), ...(o.verySlowMs !== undefined ? { verySlowMs: o.verySlowMs } : {}) } as CrawlOptions['thresholds'],
