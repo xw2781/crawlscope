@@ -154,7 +154,7 @@ export async function startFixtureServer(opts: FixtureOptions = {}): Promise<Fix
       }
       return send(req, res, 200, 'text/html', '<html><head><title>Flaky page that recovered after a retry</title></head><body><h1>ok</h1></body></html>');
     }
-    if (path === '/slow') await new Promise((r) => setTimeout(r, 500));
+    if (path === '/slow') await new Promise((r) => setTimeout(r, 1300));
     if (path === '/big') {
       const filler = '<p>' + 'lorem ipsum dolor sit amet '.repeat(40) + '</p>\n';
       const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>A Very Large HTML Document For Size Check Tests</title><meta name="description" content="This page is intentionally larger than one megabyte of HTML to trigger the large document check."><meta name="viewport" content="width=device-width"><link rel="canonical" href="${origin()}/big"><meta property="og:title" content="d"><meta property="og:description" content="d"><meta property="og:image" content="d"><meta property="og:type" content="website"><meta name="twitter:card" content="summary"></head><body><main><h1>Big</h1>${filler.repeat(1100)}</main></body></html>`;

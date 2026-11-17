@@ -14,7 +14,7 @@ let dir: string;
 const rel = (u: string) => u.replace(server.origin, '').replace(server.external, 'EXT') || '/';
 
 const opts = (over: Partial<CrawlOptions> = {}): CrawlOptions =>
-  resolveOptions({ url: server.origin + '/', delayMs: 0, externalCheck: true, aiBotsCheck: true, outDir: dir, thresholds: { slowMs: 450, verySlowMs: 2000 } as never, ...over });
+  resolveOptions({ url: server.origin + '/', delayMs: 0, externalCheck: true, aiBotsCheck: true, outDir: dir, thresholds: { slowMs: 1000, verySlowMs: 3000 } as never, ...over });
 
 beforeAll(async () => {
   server = await startFixtureServer();
