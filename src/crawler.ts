@@ -56,7 +56,7 @@ interface StoredLine {
   links: LinkRecord[];
 }
 
-const KEEP_HEADERS = ['content-type', 'content-length', 'content-encoding', 'content-language', 'cache-control', 'etag', 'last-modified', 'server', 'x-robots-tag', 'strict-transport-security', 'location', 'link', 'retry-after', 'x-powered-by'];
+const KEEP_HEADERS = ['content-type', 'content-length', 'content-encoding', 'content-language', 'cache-control', 'etag', 'last-modified', 'server', 'x-robots-tag', 'strict-transport-security', 'location', 'link', 'retry-after', 'x-powered-by', 'content-security-policy', 'content-security-policy-report-only'];
 
 export const STATE_FILE = 'state.jsonl';
 export const CRAWL_FILE = 'crawl.json';
@@ -502,10 +502,16 @@ export class Crawler {
         return { page, links };
       }
       const html = dec.text;
-      const x = extractHtml(html, url, page.xRobotsTag);
-      const { links: raw, ai, ...rest } = x;
+      const x = extractHtml(html, url, page.xRobotsTag, this.effectiveSeed);
+      const { links: raw, ai, cspMeta, ...rest } = x;
       Object.assign(page, rest);
       page.ai = ai;
+      const cspHeader = !!res.headers['content-security-policy']?.trim();
+      page.csp = {
+        enforced: cspHeader || cspMeta,
+        reportOnly: !!res.headers['content-security-policy-report-only']?.trim(),
+        source: cspHeader && cspMeta ? 'both' : cspHeader ? 'header' : cspMeta ? 'meta' : null,
+      };
       page.faviconHref = x.faviconHref;
       const directives = `${page.metaRobots ?? ''},${xRobotsDirectives(page.xRobotsTag).join(',')}`;
       page.noindex = /(^|[\s,])(noindex|none)([\s,]|$)/.test(directives);

@@ -14,7 +14,7 @@ Every consumer (reports, diff, MCP) must check `schemaVersion` first; breaking c
   "status": "complete",          // or "partial" (interrupted)
   "truncated": false,            // true when --max-pages stopped the crawl early
   "options": { /* CrawlOptions without outDir */ },
-  "summary": { /* CrawlSummary: counts by severity/check, status codes, health score ... */ },
+  "summary": { /* CrawlSummary: counts by severity/check, status codes, health score, thirdPartyScripts ... */ },
   "pages": [ /* PageRecord */ ],
   "links": [ /* LinkRecord */ ],
   "issues": [ /* Issue */ ],
@@ -39,6 +39,21 @@ Every consumer (reports, diff, MCP) must check `schemaVersion` first; breaking c
 * **Issues** are `{ checkId, severity, category, url, message, details? }`; look up the check's wording in `checks[]`.
   Link-level issues (e.g. `broken-internal-link`) are reported on the *source* page, with the target in `details`.
 * **AI readiness** mixes hard checks and heuristics; `aiReadiness.disclaimer` says so and consumers should repeat it.
+
+## Third-party scripts and CSP
+
+Added in 0.2 as optional fields (absent in older crawls; checks skip them, no schema bump).
+
+* `PageRecord.scripts[]`: one entry per distinct `<script src>` (http/https only, max 300): `{ url, host, thirdParty, sri, crossorigin }`.
+  `thirdParty` compares registrable domains (small built-in multi-part suffix list, not the full PSL) against the start URL, so subdomains are first-party.
+  `sri` is true for a non-empty `integrity` attribute; `crossorigin` is the attribute value (`""` if bare) or `null`.
+* `PageRecord.csp`: `{ enforced, reportOnly, source }`. `enforced` = `Content-Security-Policy` header or `<meta http-equiv>`;
+  `reportOnly` = `Content-Security-Policy-Report-Only` header; `source` = `header` | `meta` | `both` | `null`. Both headers are also kept in `headers`.
+* `summary.thirdPartyScripts`: `{ pagesScanned, hosts[], totalScripts, thirdPartyScripts, thirdPartyWithSri, pagesWithThirdParty, csp: { enforced, reportOnly, none } }`.
+  Each host: `{ host, category, dynamic, pages, scripts, withSri, sriCoverage, exampleScripts, examplePages, insecure }`.
+  `category` comes from a built-in list (`experimentation`, `tag-manager`, `analytics`, `advertising`, `consent`, `cdn`, `social`, `support-chat`, `monitoring`, `payments`, `video`) or is `null`;
+  `dynamic` marks snippets whose content changes server-side, where SRI is impractical.
+* Checks: `third-party-script-no-sri`, `insecure-script`, `csp-missing`, `csp-report-only` (category `security`).
 
 ## Companion files in a crawl directory
 

@@ -423,6 +423,22 @@
           h('dt', null, '404 handling'), h('dd', null, D.site.soft404 ? (D.site.soft404.status === 404 || D.site.soft404.status === 410 ? 'returns a real 404' : 'soft 404 (HTTP ' + D.site.soft404.status + ')') : '–')),
           D.robots.warnings.length ? h('div', { style: 'margin-top:10px' }, D.robots.warnings.slice(0, 5).map(function (w2) { return h('div', { class: 'note' }, 'line ' + w2.line + ': ' + w2.message); })) : null,
           D.robots.raw ? h('details', { style: 'margin-top:10px' }, h('summary', { style: 'cursor:pointer;font-weight:600' }, 'View robots.txt'), h('pre', { class: 'code' }, D.robots.raw)) : null))));
+      renderThirdParty(el);
+    }
+
+    function renderThirdParty(el) {
+      var T = D.summary.thirdPartyScripts;
+      if (!T) return;
+      var csp = T.csp;
+      el.appendChild(h('div', { style: 'margin-top:16px' }, card('Third-party script inventory',
+        h('div', null,
+          h('p', { class: 'note', style: 'margin-top:0' }, n(T.hosts.length) + ' external script host(s) on ' + n(T.pagesWithThirdParty) + ' of ' + n(T.pagesScanned) + ' HTML pages · ' + n(T.thirdPartyWithSri) + ' of ' + n(T.thirdPartyScripts) + ' third-party script tags have SRI · CSP: ' + n(csp.enforced) + ' enforced, ' + n(csp.reportOnly) + ' report-only, ' + n(csp.none) + ' none. Categories come from a small built-in list (no network lookups); SRI cannot be used for dynamic snippets such as Optimizely or Google Tag Manager.'),
+          T.hosts.length ? h('div', { class: 'scrollx' }, h('table', { class: 't' }, h('thead', null, h('tr', null, ['Host', 'Category', 'Pages', 'SRI', 'Example'].map(function (x) { return h('th', null, x); }))),
+            h('tbody', null, T.hosts.slice(0, 50).map(function (x) {
+              return h('tr', null, h('td', { class: 'url' }, x.host, x.insecure ? h('span', { class: 'tag', style: 'margin-left:6px' }, 'http') : null), h('td', null, x.category || 'unknown'), h('td', { class: 'num' }, n(x.pages)),
+                h('td', null, x.withSri + '/' + x.scripts, x.dynamic ? h('span', { class: 'note' }, ' (dynamic, n/a)') : null), h('td', { class: 'url' }, x.exampleScripts[0] || ''));
+            })))) : emptyNote('No third-party scripts found.'),
+          T.hosts.length > 50 ? h('p', { class: 'note' }, '… and ' + n(T.hosts.length - 50) + ' more (see crawl.json summary.thirdPartyScripts).') : null))));
     }
 
     // =====================================================================

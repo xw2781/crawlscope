@@ -7,6 +7,7 @@ import { siteChecks } from './site.js';
 import { structuredChecks } from './structured.js';
 import { aiChecks } from './ai.js';
 import { edgeChecks } from './edge.js';
+import { thirdPartyChecks } from './thirdparty.js';
 
 export const ALL_CHECKS: CheckDef[] = [
   ...responseChecks,
@@ -17,6 +18,7 @@ export const ALL_CHECKS: CheckDef[] = [
   ...siteChecks,
   ...aiChecks,
   ...edgeChecks,
+  ...thirdPartyChecks,
 ];
 
 export function checkMeta(): CheckMeta[] {

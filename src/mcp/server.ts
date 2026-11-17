@@ -51,6 +51,7 @@ function summaryOf(r: CrawlResult, name: string, topN = 10) {
     crawl_id: name, seed: r.seed, status: r.status, truncated: r.truncated, startedAt: r.startedAt, durationMs: r.durationMs,
     pages: s.pagesCrawled, htmlPages: s.htmlPages, indexable: s.indexablePages, healthScore: s.healthScore, aiReadinessScore: s.aiReadinessScore,
     issues: { total: s.issuesTotal, ...s.bySeverity }, statusCodes: s.statusCodes, avgResponseTimeMs: s.avgResponseTimeMs, maxDepth: s.maxDepth,
+    ...(s.thirdPartyScripts ? { thirdParty: { hosts: s.thirdPartyScripts.hosts.length, scripts: s.thirdPartyScripts.thirdPartyScripts, withSri: s.thirdPartyScripts.thirdPartyWithSri } } : {}),
     topIssueTypes: s.byCheck.slice(0, topN).map((c) => ({ check: c.checkId, severity: c.severity, count: c.count, title: titles.get(c.checkId) })),
     ...(s.byCheck.length > topN ? { moreIssueTypes: s.byCheck.length - topN } : {}),
   };
@@ -178,6 +179,7 @@ export function createMcpServer(opts: McpOptions = {}): { server: McpServer; sto
         robots: { mode: r.robots.mode, status: r.robots.status },
         ...(ai ? { ai: { score: ai.score, llmsTxt: ai.llmsTxt.present, llmsFullTxt: ai.llmsFullTxt.present, blockedAiBots: ai.bots.filter((b) => !b.allowed).map((b) => b.bot) } } : {}),
         slowestPages: r.summary.slowestPages,
+        ...(r.summary.thirdPartyScripts ? { thirdPartyScripts: { ...r.summary.thirdPartyScripts, hosts: r.summary.thirdPartyScripts.hosts.slice(0, top) } } : {}),
         hints: ['list_issues to drill into a check_id; get_page for one URL; diff_crawls to compare with an earlier crawl.'],
       };
     },

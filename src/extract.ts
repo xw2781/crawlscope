@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
-import type { HeadingInfo, HreflangEntry, ImageInfo, PageAiSignals, StructuredDataItem } from './types.js';
-import { normalizeUrl } from './util/url.js';
+import type { HeadingInfo, HreflangEntry, ImageInfo, PageAiSignals, PageScript, StructuredDataItem } from './types.js';
+import { normalizeUrl, registrableDomain } from './util/url.js';
 import { sha256Short, simhash } from './util/hash.js';
 import { extractStructuredData } from './structured-data.js';
 import { parseMetaRefresh } from './util/headers.js';
@@ -40,6 +40,9 @@ export interface HtmlExtract {
   links: RawLink[];
   metaRefresh: { delay: number; url: string | null } | null;
   resources: { iframes: string[]; srcset: string[] };
+  scripts: PageScript[];
+  /** <meta http-equiv="Content-Security-Policy"> with content present */
+  cspMeta: boolean;
   ai: PageAiSignals;
 }
 
@@ -69,7 +72,14 @@ function hasSdAuthor(sd: StructuredDataItem[]): boolean {
   });
 }
 
-export function extractHtml(html: string, pageUrl: string, xRobotsTag: string | null = null): HtmlExtract {
+/** Third-party = outside the registrable domain of the site (the start URL; defaults to the page itself). */
+export function isThirdPartyHost(host: string, siteUrl: string): boolean {
+  let siteHost: string;
+  try { siteHost = new URL(siteUrl).hostname; } catch { return false; }
+  return registrableDomain(host) !== registrableDomain(siteHost);
+}
+
+export function extractHtml(html: string, pageUrl: string, xRobotsTag: string | null = null, siteUrl: string = pageUrl): HtmlExtract {
   const $ = cheerio.load(html);
   const baseHref = abs($('base[href]').first().attr('href'), pageUrl);
   const base = baseHref ?? pageUrl;
@@ -147,6 +157,23 @@ export function extractHtml(html: string, pageUrl: string, xRobotsTag: string | 
       });
     }
   }
+
+  // scripts (one entry per distinct URL + attribute combination, document order)
+  const scripts: PageScript[] = [];
+  const seenScripts = new Set<string>();
+  $('script[src]').each((_, e) => {
+    const el = $(e);
+    const u = abs(el.attr('src'), base);
+    if (!u || !/^https?:/i.test(u)) return;
+    const sri = !!(el.attr('integrity') ?? '').trim();
+    const co = el.attr('crossorigin');
+    const key = `${u}|${sri}|${co ?? ''}`;
+    if (seenScripts.has(key) || scripts.length >= 300) return;
+    seenScripts.add(key);
+    const host = new URL(u).hostname.toLowerCase();
+    scripts.push({ url: u, host, thirdParty: isThirdPartyHost(host, siteUrl), sri, crossorigin: co === undefined ? null : co.trim() });
+  });
+  const cspMeta = $('meta[http-equiv="content-security-policy" i]').filter((_, e) => !!($(e).attr('content') ?? '').trim()).length > 0;
 
   // links
   const links: RawLink[] = [];
@@ -259,6 +286,8 @@ export function extractHtml(html: string, pageUrl: string, xRobotsTag: string | 
     links,
     metaRefresh,
     resources,
+    scripts,
+    cspMeta,
     ai: {
       hasMain,
       hasArticle,

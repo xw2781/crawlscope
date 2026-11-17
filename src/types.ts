@@ -187,8 +187,65 @@ export interface PageRecord {
   /** character set used to decode the body */
   charset?: string | null;
 
+  /** every <script src> on the page (absent in crawls made before v0.2) */
+  scripts?: PageScript[];
+  /** Content-Security-Policy state (absent for non-HTML pages and older crawls) */
+  csp?: PageCsp;
+
   /** AI-readiness related page signals (heuristics, see docs) */
   ai: PageAiSignals;
+}
+
+export interface PageScript {
+  /** absolute URL */
+  url: string;
+  host: string;
+  /** host is outside the site's registrable domain (subdomains of the start host are first-party) */
+  thirdParty: boolean;
+  /** has a non-empty integrity attribute (Subresource Integrity) */
+  sri: boolean;
+  /** value of the crossorigin attribute ('' when present without value), null when absent */
+  crossorigin: string | null;
+}
+
+export interface PageCsp {
+  /** an enforcing policy exists (header or <meta http-equiv>) */
+  enforced: boolean;
+  /** a Content-Security-Policy-Report-Only header exists */
+  reportOnly: boolean;
+  source: 'header' | 'meta' | 'both' | null;
+}
+
+export interface ThirdPartyHost {
+  host: string;
+  /** label from the built-in list, or null when unknown */
+  category: ThirdPartyCategory | null;
+  /** well-known snippet that is generated dynamically, so SRI cannot be used */
+  dynamic: boolean;
+  pages: number;
+  scripts: number;
+  withSri: number;
+  /** share (0-1) of this host's script tags that carry integrity */
+  sriCoverage: number;
+  /** up to 3 script URLs */
+  exampleScripts: string[];
+  /** up to 3 pages loading it */
+  examplePages: string[];
+  /** some pages load it over http:// */
+  insecure: boolean;
+}
+
+export type ThirdPartyCategory = 'experimentation' | 'tag-manager' | 'analytics' | 'advertising' | 'consent' | 'cdn' | 'social' | 'support-chat' | 'monitoring' | 'payments' | 'video';
+
+export interface ThirdPartyInventory {
+  /** HTML pages that were analysed for scripts */
+  pagesScanned: number;
+  hosts: ThirdPartyHost[];
+  totalScripts: number;
+  thirdPartyScripts: number;
+  thirdPartyWithSri: number;
+  pagesWithThirdParty: number;
+  csp: { enforced: number; reportOnly: number; none: number };
 }
 
 export interface PageAiSignals {
@@ -391,6 +448,8 @@ export interface CrawlSummary {
   internalLinks: number;
   externalLinks: number;
   sitemapUrls: number;
+  /** third-party script inventory (absent in crawls made before v0.2) */
+  thirdPartyScripts?: ThirdPartyInventory;
 }
 
 export interface CrawlResult {

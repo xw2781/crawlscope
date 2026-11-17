@@ -126,6 +126,7 @@ program
         id: result.id, seed: result.seed, status: result.status, truncated: result.truncated, outDir, files, durationMs: result.durationMs,
         summary: { pagesCrawled: s.pagesCrawled, healthScore: s.healthScore, aiReadinessScore: s.aiReadinessScore, issuesTotal: s.issuesTotal, bySeverity: s.bySeverity, statusCodes: s.statusCodes },
         topIssues: s.byCheck.slice(0, 10),
+        thirdPartyScripts: s.thirdPartyScripts ? { ...s.thirdPartyScripts, hosts: s.thirdPartyScripts.hosts.slice(0, 20).map(({ host, category, pages, scripts, withSri }) => ({ host, category, pages, scripts, withSri })) } : undefined,
       }, null, 2) + '\n');
     } else {
       process.stdout.write(formatSummary(result, outDir));

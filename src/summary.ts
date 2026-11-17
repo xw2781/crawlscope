@@ -1,3 +1,4 @@
+import { buildThirdPartyInventory } from './third-party.js';
 import type { CrawlResult, CrawlSummary, Severity } from './types.js';
 
 const WEIGHT: Record<Severity, number> = { error: 10, warning: 4, notice: 0.75 };
@@ -52,5 +53,6 @@ export function summarize(result: CrawlResult): CrawlSummary {
     internalLinks: result.links.filter((l) => l.type === 'a' && l.internal).length,
     externalLinks: result.links.filter((l) => l.type === 'a' && !l.internal).length,
     sitemapUrls: result.sitemapUrls.length,
+    thirdPartyScripts: buildThirdPartyInventory(result.pages),
   };
 }

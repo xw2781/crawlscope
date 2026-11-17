@@ -49,7 +49,7 @@ Once published, `npx crawlscope ...` and `npm i -g crawlscope` will work as show
 ## Features
 
 * Crawler: same-site BFS with include/exclude regexes, depth and page limits, subdomains, sitemap discovery (robots, `sitemap.xml`, sitemap index, gzip), resume and incremental re-crawl using ETag / Last-Modified, graceful Ctrl+C with partial results.
-* **98 checks** with ids, severities and how-to-fix text: responses and redirect chains/loops, broken internal and external links, titles, descriptions, headings, images, canonicals (HTML and HTTP `Link` header), hreflang, duplicate and near-duplicate content, thin content, URL hygiene, noindex / `X-Robots-Tag`, meta refresh, trailing-slash and `index.html` duplicates, sitemap problems, orphans, depth, HTTPS/HSTS, mixed content, soft-404 probe, Open Graph/Twitter, and structured data validation (JSON-LD, microdata, RDFa).
+* **102 checks** with ids, severities and how-to-fix text: responses and redirect chains/loops, broken internal and external links, titles, descriptions, headings, images, canonicals (HTML and HTTP `Link` header), hreflang, duplicate and near-duplicate content, thin content, URL hygiene, noindex / `X-Robots-Tag`, meta refresh, trailing-slash and `index.html` duplicates, sitemap problems, orphans, depth, HTTPS/HSTS, mixed content, third-party scripts (SRI, CSP, `http://` scripts), soft-404 probe, Open Graph/Twitter, and structured data validation (JSON-LD, microdata, RDFa).
 * Robust parsing: non-UTF-8 charsets (header, BOM, `<meta charset>`), `<base href>`, binary or oversized bodies, very long URLs, iframe and `srcset` URLs recorded but never crawled.
 * Outputs: `crawl.json` (versioned schema), three CSV files, `report.html`.
 * Local web UI (`crawlscope ui`, 127.0.0.1 only) with live progress, history and side-by-side comparison.
@@ -151,6 +151,21 @@ claude mcp add crawlscope -- npx -y crawlscope mcp      # Claude Code (once publ
 Tools: `crawl_site`, `get_crawl_summary`, `list_crawls`, `list_issues`, `get_page`, `find_pages`, `audit_url`, `check_ai_readiness`,
 `check_robots_url`, `diff_crawls`, `export_report`. Crawls are stored in `~/.crawlscope` (`CRAWLSCOPE_DATA_DIR` to change).
 Config for Cursor, Codex and generic clients: [docs/mcp.md](docs/mcp.md). Agent workflow and the Claude Code skill: [docs/agents.md](docs/agents.md).
+
+## Third-party script inventory
+
+Every `<script src>` is recorded per page (absolute URL, third-party or not, `integrity`/SRI, `crossorigin`), along with whether the page has a `Content-Security-Policy` (header or `<meta>`) or only a report-only one. Hosts outside the site's registrable domain are third-party; subdomains of the start host are first-party.
+
+The site-level inventory lists each external host with the number of pages loading it, example URLs, SRI coverage and a category (experimentation, tag manager, analytics, advertising, CDN, …) from a small built-in list. There are no network lookups. It appears in the console summary, `crawl.json` (`summary.thirdPartyScripts`), the HTML report (Sitemap & site) and the MCP `get_crawl_summary` tool.
+
+| Check | Severity | What it looks for |
+|---|---|---|
+| `third-party-script-no-sri` | notice | external script without `integrity`, one finding per host. For dynamic snippets (Optimizely, Google Tag Manager, …) SRI is not possible, and the message says so |
+| `insecure-script` | error | `<script src="http://…">` on an HTTPS page |
+| `csp-missing` | notice | HTML pages with no Content-Security-Policy (reported once per site) |
+| `csp-report-only` | notice | only `Content-Security-Policy-Report-Only`, nothing enforced (once per site) |
+
+This is a visibility aid, not a malware scanner: it shows what your pages load, not whether it is malicious. Prompted by the November 2026 compromise of Optimizely Web snippets on `cdn.optimizely.com` ([Report URI write-up](https://blog.report-uri.com/worlds-largest-brands-infected-with-malware-via-optimizely/)).
 
 ## GEO / AEO checks
 

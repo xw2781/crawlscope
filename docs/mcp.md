@@ -77,7 +77,7 @@ Quick check without a client: `npx @modelcontextprotocol/inspector npx -y crawls
 | Tool | What it does |
 |---|---|
 | `crawl_site` | Crawl a site and save it. Agent-safe defaults: `max_pages` 200, 250 ms delay, 4 connections, 10-minute time limit, crawl-trap guard. Sends progress notifications; cancelling the call stops the crawl gracefully and keeps the partial result. Returns a compact summary and a `crawl_id`. |
-| `get_crawl_summary` | Health and AI-readiness scores, issue counts by severity, top issue types. |
+| `get_crawl_summary` | Health and AI-readiness scores, issue counts by severity, top issue types, and the third-party script inventory (hosts, pages, SRI coverage). |
 | `list_crawls` | Saved crawls (newest first). |
 | `list_issues` | Issues with filters (`severity`, `check_id`, `category`, `url_contains`), per-check counts, paging (`limit`, `offset`). With `check_id` it includes the how-to-fix text. |
 | `get_page` | Everything about one URL: status, indexability, title/description/headings, canonicals, hreflang, structured data, its issues (with fixes), inbound/outbound links (capped). Accepts a full URL or a path such as `/about`. |

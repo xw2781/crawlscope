@@ -17,6 +17,7 @@ Only crawl sites the user owns or is allowed to crawl. Never disable robots.txt 
 4. `find_pages {missing: "title"}`, `{status_class: "4xx"}`, `{min_response_ms: 1000}` for lists of pages.
 5. After changes are deployed, run `crawl_site` again and `diff_crawls`: report resolved vs new issues, not just totals.
 6. GEO/AEO questions: `check_ai_readiness {url}` (llms.txt, AI-bot access, structured data); `check_robots_url {url, user_agent: "GPTBot"}`.
+7. Supply-chain questions ("which third-party scripts do we load?"): `get_crawl_summary` returns `thirdPartyScripts` (hosts, pages, SRI coverage); `list_issues {check_id: "third-party-script-no-sri"}` (also `insecure-script`, `csp-missing`, `csp-report-only`). SRI cannot be used for dynamic snippets such as Optimizely or GTM; recommend CSP instead.
 
 Keep outputs small: use `limit`, filters, and summarise for the user instead of pasting raw JSON.
 

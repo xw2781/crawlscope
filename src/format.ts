@@ -33,6 +33,13 @@ export function formatSummary(r: CrawlResult, outDir?: string | null): string {
     lines.push(c.bold('  Slowest pages'));
     for (const p of s.slowestPages.slice(0, 5)) lines.push(`    ${String(p.responseTimeMs).padStart(6)} ms  ${p.url}`);
   }
+  const tp = s.thirdPartyScripts;
+  if (tp && tp.hosts.length) {
+    lines.push('');
+    lines.push(c.bold('  Third-party scripts') + c.gray(`  ${tp.hosts.length} host(s) · ${tp.thirdPartyWithSri}/${tp.thirdPartyScripts} tags with SRI`));
+    for (const h of tp.hosts.slice(0, 8)) lines.push(`    ${String(h.pages).padStart(4)} pages  ${h.host.padEnd(34)} ${c.gray((h.category ?? 'unknown').padEnd(17) + 'SRI ' + h.withSri + '/' + h.scripts)}`);
+    if (tp.hosts.length > 8) lines.push(c.gray(`    … and ${tp.hosts.length - 8} more in crawl.json (summary.thirdPartyScripts)`));
+  }
   if (r.aiReadiness) {
     lines.push('');
     lines.push(c.bold('  AI readiness') + c.gray('  (heuristic checklist, not a ranking prediction)'));
