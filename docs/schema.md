@@ -55,6 +55,11 @@ Added in 0.2 as optional fields (absent in older crawls; checks skip them, no sc
   `dynamic` marks snippets whose content changes server-side, where SRI is impractical.
 * Checks: `third-party-script-no-sri`, `insecure-script`, `csp-missing`, `csp-report-only` (category `security`).
 
+## Server version disclosure
+
+`server-version-disclosure` (category `security`, severity `warning`) uses `PageRecord.headers`; `x-aspnet-version` and `x-aspnetmvc-version` are now kept alongside `server` and `x-powered-by`.
+One issue per host: `details` = `{ host, headers: { <header>: [values] }, versions: [tokens], pages, examplePages }`.
+
 ## Companion files in a crawl directory
 
 | File | Purpose |

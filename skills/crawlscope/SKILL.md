@@ -18,6 +18,7 @@ Only crawl sites the user owns or is allowed to crawl. Never disable robots.txt 
 5. After changes are deployed, run `crawl_site` again and `diff_crawls`: report resolved vs new issues, not just totals.
 6. GEO/AEO questions: `check_ai_readiness {url}` (llms.txt, AI-bot access, structured data); `check_robots_url {url, user_agent: "GPTBot"}`.
 7. Supply-chain questions ("which third-party scripts do we load?"): `get_crawl_summary` returns `thirdPartyScripts` (hosts, pages, SRI coverage); `list_issues {check_id: "third-party-script-no-sri"}` (also `insecure-script`, `csp-missing`, `csp-report-only`). SRI cannot be used for dynamic snippets such as Optimizely or GTM; recommend CSP instead.
+8. `server-version-disclosure` means a Server / X-Powered-By / X-AspNet(Mvc)-Version header exposes a software version. Advise hiding it (nginx `server_tokens off`), but do not claim the version is vulnerable; crawlscope does not check that.
 
 Keep outputs small: use `limit`, filters, and summarise for the user instead of pasting raw JSON.
 

@@ -61,7 +61,7 @@ function detailOf(p: PageRecord): string {
   const d: Record<string, unknown> = {};
   const h = p.headers;
   const hs: Record<string, string> = {};
-  for (const k of ['content-type', 'server', 'cache-control', 'etag', 'last-modified', 'content-encoding', 'x-robots-tag', 'strict-transport-security', 'location']) if (h[k]) hs[k] = trunc(h[k], 200);
+  for (const k of ['content-type', 'server', 'cache-control', 'etag', 'last-modified', 'content-encoding', 'x-robots-tag', 'strict-transport-security', 'location', 'x-powered-by', 'x-aspnet-version', 'x-aspnetmvc-version']) if (h[k]) hs[k] = trunc(h[k], 200);
   if (Object.keys(hs).length) d.headers = hs;
   if (p.finalUrl !== p.url) d.finalUrl = p.finalUrl;
   if (p.redirectTo) d.redirectTo = p.redirectTo;

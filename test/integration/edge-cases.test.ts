@@ -78,6 +78,13 @@ describe('edge cases on the fixture', () => {
     expect(p.noindex).toBe(true);
     expect(p.indexable).toBe(false);
   });
+  it('keeps version headers and reports server-version-disclosure once per host', () => {
+    expect(page('/edge/header-canon').headers['x-aspnet-version']).toBe('4.0.30319');
+    const found = r.issues.filter((i) => i.checkId === 'server-version-disclosure');
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({ severity: 'warning', category: 'security', url: server.origin + '/edge/header-canon' });
+    expect(found[0].details!.versions).toEqual(['nginx/1.25.3', 'PHP/8.1.2', '4.0.30319']);
+  });
   it('notices trailing-slash duplicates', () => {
     expect(r.issues.filter((i) => i.checkId === 'url-duplicate-variant')).toHaveLength(1);
   });

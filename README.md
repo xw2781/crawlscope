@@ -49,7 +49,7 @@ Once published, `npx crawlscope ...` and `npm i -g crawlscope` will work as show
 ## Features
 
 * Crawler: same-site BFS with include/exclude regexes, depth and page limits, subdomains, sitemap discovery (robots, `sitemap.xml`, sitemap index, gzip), resume and incremental re-crawl using ETag / Last-Modified, graceful Ctrl+C with partial results.
-* **102 checks** with ids, severities and how-to-fix text: responses and redirect chains/loops, broken internal and external links, titles, descriptions, headings, images, canonicals (HTML and HTTP `Link` header), hreflang, duplicate and near-duplicate content, thin content, URL hygiene, noindex / `X-Robots-Tag`, meta refresh, trailing-slash and `index.html` duplicates, sitemap problems, orphans, depth, HTTPS/HSTS, mixed content, third-party scripts (SRI, CSP, `http://` scripts), soft-404 probe, Open Graph/Twitter, and structured data validation (JSON-LD, microdata, RDFa).
+* **103 checks** with ids, severities and how-to-fix text: responses and redirect chains/loops, broken internal and external links, titles, descriptions, headings, images, canonicals (HTML and HTTP `Link` header), hreflang, duplicate and near-duplicate content, thin content, URL hygiene, noindex / `X-Robots-Tag`, meta refresh, trailing-slash and `index.html` duplicates, sitemap problems, orphans, depth, HTTPS/HSTS, mixed content, server version disclosure in response headers, third-party scripts (SRI, CSP, `http://` scripts), soft-404 probe, Open Graph/Twitter, and structured data validation (JSON-LD, microdata, RDFa).
 * Robust parsing: non-UTF-8 charsets (header, BOM, `<meta charset>`), `<base href>`, binary or oversized bodies, very long URLs, iframe and `srcset` URLs recorded but never crawled.
 * Outputs: `crawl.json` (versioned schema), three CSV files, `report.html`.
 * Local web UI (`crawlscope ui`, 127.0.0.1 only) with live progress, history and side-by-side comparison.
@@ -166,6 +166,12 @@ The site-level inventory lists each external host with the number of pages loadi
 | `csp-report-only` | notice | only `Content-Security-Policy-Report-Only`, nothing enforced (once per site) |
 
 This is a visibility aid, not a malware scanner: it shows what your pages load, not whether it is malicious. Prompted by the November 2026 compromise of Optimizely Web snippets on `cdn.optimizely.com` ([Report URI write-up](https://blog.report-uri.com/worlds-largest-brands-infected-with-malware-via-optimizely/)).
+
+## Server version disclosure
+
+`server-version-disclosure` (warning, category `security`) is passive: it reads the `Server`, `X-Powered-By`, `X-AspNet-Version` and `X-AspNetMvc-Version` headers of pages already crawled, with no extra requests. It flags values that expose a specific version (`nginx/1.25.3`, `Apache/2.4.57 (Ubuntu)`, `PHP/8.1.2`, `4.0.30319`), not bare product names such as `nginx` or `Express`. One finding per host, listing the headers, versions and number of pages.
+
+Exposed versions let attackers match your stack against known CVEs (for example recent nginx HTTP/2 issues) without probing. crawlscope does not check whether a version is vulnerable. To hide versions: nginx `server_tokens off;`, Apache `ServerTokens Prod` + `ServerSignature Off`, PHP `expose_php = Off`, ASP.NET `<httpRuntime enableVersionHeader="false" />`. Keep the software patched either way.
 
 ## GEO / AEO checks
 

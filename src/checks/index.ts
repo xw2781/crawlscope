@@ -8,6 +8,7 @@ import { structuredChecks } from './structured.js';
 import { aiChecks } from './ai.js';
 import { edgeChecks } from './edge.js';
 import { thirdPartyChecks } from './thirdparty.js';
+import { disclosureChecks } from './disclosure.js';
 
 export const ALL_CHECKS: CheckDef[] = [
   ...responseChecks,
@@ -19,6 +20,7 @@ export const ALL_CHECKS: CheckDef[] = [
   ...aiChecks,
   ...edgeChecks,
   ...thirdPartyChecks,
+  ...disclosureChecks,
 ];
 
 export function checkMeta(): CheckMeta[] {

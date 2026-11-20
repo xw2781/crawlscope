@@ -56,7 +56,7 @@ interface StoredLine {
   links: LinkRecord[];
 }
 
-const KEEP_HEADERS = ['content-type', 'content-length', 'content-encoding', 'content-language', 'cache-control', 'etag', 'last-modified', 'server', 'x-robots-tag', 'strict-transport-security', 'location', 'link', 'retry-after', 'x-powered-by', 'content-security-policy', 'content-security-policy-report-only'];
+const KEEP_HEADERS = ['content-type', 'content-length', 'content-encoding', 'content-language', 'cache-control', 'etag', 'last-modified', 'server', 'x-robots-tag', 'strict-transport-security', 'location', 'link', 'retry-after', 'x-powered-by', 'x-aspnet-version', 'x-aspnetmvc-version', 'content-security-policy', 'content-security-policy-report-only'];
 
 export const STATE_FILE = 'state.jsonl';
 export const CRAWL_FILE = 'crawl.json';

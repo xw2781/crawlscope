@@ -106,7 +106,7 @@ export async function startFixtureServer(opts: FixtureOptions = {}): Promise<Fix
       case '/edge/embeds':
         return html(page('Page with iframe and srcset', '<iframe src="/edge/iframe-target"></iframe><img src="/edge/img-1x.png" srcset="/edge/img-1x.png 1x, /edge/img-2x.png 2x" alt="x">'));
       case '/edge/header-canon':
-        return html(page('Canonical and noindex only in HTTP headers', ''), { link: `<${origin()}/edge/hub>; rel="canonical", <${origin()}/edge/latin1>; rel="alternate"; hreflang="fr"`, 'x-robots-tag': 'googlebot: noindex' });
+        return html(page('Canonical and noindex only in HTTP headers', ''), { link: `<${origin()}/edge/hub>; rel="canonical", <${origin()}/edge/latin1>; rel="alternate"; hreflang="fr"`, 'x-robots-tag': 'googlebot: noindex', server: 'nginx/1.25.3', 'x-powered-by': 'PHP/8.1.2', 'x-aspnet-version': '4.0.30319' });
       case '/edge/dup':
       case '/edge/dup/':
         return html(page('Trailing slash duplicate', ''));
